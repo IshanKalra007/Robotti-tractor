@@ -1,0 +1,62 @@
+class SensorGNSS
+
+instance variables
+    public static i_x : [SensorGNSS_E] := nil;
+    public static i_y : [SensorGNSS_N] := nil;
+    public static i_theta : [SensorGNSS_H] := nil;
+    protected local_val: seq of real := [0.0, 0.0, 0.0, 0.0];
+    protected route : [Route] := nil; -- Reference to the Route class
+    protected correction_threshold : real := 0.5; -- Deviation threshold
+
+operations
+    public SensorGNSS: SensorGNSS_E * SensorGNSS_N * SensorGNSS_H * Route ==> SensorGNSS
+    SensorGNSS(x, y, theta, r) == (
+        i_x := x;
+        i_y := y;
+        i_theta := theta;
+        route := r;
+    );
+
+    public read: () ==> seq of real
+    read() == (
+        Sync();
+        return local_val;
+    );
+
+    public Sync: () ==> ()
+    Sync() == cycles(20)(
+        -- Fetch GPS values
+        let x = i_x.get(),
+            y = i_y.get(),
+            theta = i_theta.get()
+        in
+            -- Correct deviations and update local_val
+            local_val := correctDeviation(x, y, theta)
+    );
+
+    private correctDeviation: real * real * real ==> seq of real
+    correctDeviation(x, y, theta) ==
+    (
+        -- Fetch current and next waypoints from the route
+        dcl current_wp : WayPoint := route.getCurrentRouteElement();
+        dcl next_wp : WayPoint := route.getNextRouteElement();
+
+        -- Get coordinates of the next waypoint
+        dcl target_x : real := next_wp.PosX();
+        dcl target_y : real := next_wp.PosY();
+
+        -- Compute the deviation from the route
+        dcl deviation : real := MATH`sqrt((x - target_x) ** 2 + (y - target_y) ** 2);
+
+        if deviation > correction_threshold then
+            -- Correct trajectory toward the next waypoint
+            let corrected_x = x + (target_x - x) * 0.1, -- Gradual adjustment
+                corrected_y = y + (target_y - y) * 0.1,
+                corrected_theta = MATH`atan2(target_y - y, target_x - x)
+            in
+                return [corrected_x, corrected_y, corrected_theta, 0.0]
+        else
+            -- Stay on the current trajectory
+            return [x, y, theta, 0.0]
+    );
+end SensorGNSS

@@ -1,0 +1,21 @@
+class SensorGNSS_N
+
+instance variables
+	port : RealPort;
+
+	operations
+	public SensorGNSS_N : RealPort ==> SensorGNSS_N
+	SensorGNSS_N(p) ==
+		port := p;
+		
+	public get: () ==> real
+			get() == 
+			--Simulating system fault (noise, signal loss, outliers - basially hallucination)
+			 let randomNoise = if MATH`rand(100) > 80 then (MATH`rand(100)/2000.0 - 0.025 ) else 0 in
+			 let signalLoss = MATH`rand(100) > 0.95 in
+			 let outliers = MATH`rand(100) > 0.99 in
+			return if signalLoss then -1
+			else if outliers then (port.getValue()* (MATH`rand(100)*10))
+			else (port.getValue()+ randomNoise);
+	
+end SensorGNSS_N
